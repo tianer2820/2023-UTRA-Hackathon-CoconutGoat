@@ -4,8 +4,26 @@ import time
 import bluetooth
 import socket
 import threading
-from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton
-from PyQt6 import uic
+from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget
+from PyQt6 import uic, QtGui, QtCore
+
+class KeyboardInterface(QWidget):
+    def __init__(self, sock):
+        self.sock = sock
+        super(KeyboardInterface, self).__init__()
+        self.show()
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == QtCore.Qt.Key.Key_W:
+            send_forward(self.sock, 1, 0)
+        elif event.key() == QtCore.Qt.Key.Key_S:
+            send_forward(self.sock, -1, 0)
+        elif event.key() == QtCore.Qt.Key.Key_A:
+            send_forward(self.sock, 0, -1)
+        elif event.key() == QtCore.Qt.Key.Key_D:
+            send_forward(self.sock, 0, 1)
+    def keyReleaseEvent(self, event):
+        send_forward(self.sock, 0, 0)
 
 class MainWindow(QMainWindow):
     def __init__(self, sock):
@@ -97,9 +115,9 @@ def send_forward(sock, forward_v, turn_v):
 if __name__ == '__main__':
     sock = connect_bluetooth()
     print(sock)
-
     thread = threading.Thread(target=recv_thread, args=(sock,))
     thread.start()
     window_app = QApplication(sys.argv)
     mainwindowui = MainWindow(sock)
+    keyboardui = KeyboardInterface(sock)
     window_app.exec()
