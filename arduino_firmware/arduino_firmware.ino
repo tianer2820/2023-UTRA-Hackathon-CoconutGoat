@@ -1,10 +1,14 @@
-#include <SoftwareSerial.h>
 
+#include <SoftwareSerial.h>
+#include <NewPing.h>
+
+
+#include "sensor.h"
 #include "chassis.h"
 #include "digital_counter.h"
 
 // debug flag
-// #define DEBUG
+#define DEBUG
 
 // motor ports
 #define M_PORT1 5
@@ -12,9 +16,6 @@
 #define M_PORT3 9
 #define M_PORT4 10
 
-// bluetooth ports
-#define BLUETOOTH_RX 2
-#define BLUETOOTH_TX 3
 
 #define ANALOG_SENSOR_0 A0
 #define ANALOG_SENSOR_1 A1
@@ -24,13 +25,19 @@
 #define ANALOG_SENSOR_5 A7
 #define ANALOG_SENSOR_N 6
 
-// wheel encoder
-#define LEFT_ENCODER 12
-#define RIGHT_ENCODER 11
+
 
 // front color
 #define FRONT_COLOR 4
 #define LEFT_COLOR 7
+
+// sonics
+#define SONIC_RIGHT_TRIGGER 12
+#define SONIC_LEFT_TRIGGER 13
+#define SONIC_FRONT_TRIGGER 11
+#define SONIC_LEFT_RECV 8
+#define SONIC_FRONT_RECV 3
+#define SONIC_RIGHT_RECV 2
 
 
 Car *car = NULL;
@@ -53,8 +60,35 @@ enum State{
 int current_state = FRONT;
 
 
+class MyTimer
+{
+private:
+    unsigned long start_time;
+public:
+    MyTimer(){
+        start_time = 0;
+    }
+
+    void reset(){
+        start_time = millis();
+    }
+    unsigned long get(unsigned long ms){
+        return ms - start_time;
+    }
+};
+
+
+
+NewPing* sonic_front;
+NewPing* sonic_left;
+NewPing* sonic_right;
+
 void setup()
 {
+    sonic_front = new NewPing(SONIC_FRONT_TRIGGER, SONIC_FRONT_RECV, 100);
+    sonic_left = new NewPing(SONIC_LEFT_TRIGGER, SONIC_LEFT_RECV, 100);
+    sonic_right = new NewPing(SONIC_RIGHT_TRIGGER, SONIC_RIGHT_RECV, 100);
+
     current_state = FRONT;
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -99,9 +133,7 @@ void setup()
         pinMode(analog_sensors[i], INPUT);
     }
 
-    // wheel encoders
-    counters[0] = new DigitalCounter(LEFT_ENCODER);
-    counters[1] = new DigitalCounter(RIGHT_ENCODER);
+
     
 }
 
@@ -111,46 +143,112 @@ double drift = 0;
 float angle = 0;
 void loop()
 {
-    digitalWrite(LED_BUILTIN, led);
-    led = !led;
 
-    // drift for gyro
-    unsigned long new_time = millis();
-    unsigned long delta = new_time - last_time;
-    last_time = new_time;
-    drift += 0.5 / (10 * 1000) * delta;
+    MyTimer my_timer;
 
-    // gyro
+    MyTimer last_rotate;
+    last_rotate.reset();
+
     sensor.read();
-    float yaw = sensor.getYaw() - drift;
+    drift = sensor.getYaw() - 180;
 
+    // obstacle
 
-    #ifdef DEBUG
-    Serial.println(yaw);
-    #endif
+    while (1)
+    {
 
-
-    // Analog sensors
-    // for (int i = 0; i < ANALOG_SENSOR_N; i++)
-    // {
-    //     int val = analogRead(analog_sensors[i]);
-    //     float percent = (float)val / 1023.0;
-    // }
-
-
-    // Digital counters
-    counters[0]->update();
-    counters[1]->update();
+        long left = sonic_left->ping_cm();
 
 
 
-    // black line
-    if(digitalRead(LEFT_COLOR)){
-        car->drive(0, 0.3);
-    } else if (digitalRead(FRONT_COLOR)){
-        car->drive(0, -0.3);
-    } else {
-        car->drive(-0.3, 0);
+        // drift for gyro
+        unsigned long new_time = millis();
+        unsigned long delta = new_time - last_time;
+        last_time = new_time;
+        drift += 0.7 / (10 * 1000) * delta;
+
+        // gyro
+        sensor.read();
+        float yaw = sensor.getYaw() - drift;
+
+        if(last_rotate.get(millis()) > 1500){
+            // return to the original direction
+            car->drive(0, 0.45);
+            while (1)
+            {
+                sensor.read();
+                if(sensor.getYaw() - drift > 160 && sensor.getYaw() - drift < 195){
+                    car->drive(0, 0);
+                    break;
+                }
+                
+            }
+            last_rotate.reset();
+        }
+
+        
+
+
+        if(left == 0){
+            left = 9999;
+        }
+        
+        if(left >= 15){
+            car->drive(-0.5, -0.05);
+        }
+        else {
+            car->drive(0, 0);
+            my_timer.reset();
+            while (my_timer.get(millis()) < 500)
+            {
+                sensor.read();
+            }
+            
+            car->drive(0, 0.5);
+            my_timer.reset();
+            while (my_timer.get(millis()) < 300)
+            {
+                sensor.read();
+            }
+            car->drive(0, 0);
+            my_timer.reset();
+            while (my_timer.get(millis()) < 300)
+            {
+                sensor.read();
+            }
+            int new_left = sonic_left->ping_cm();
+            car->drive(0, -0.5);
+            my_timer.reset();
+            while (my_timer.get(millis()) < 500)
+            {
+                sensor.read();
+            }
+            car->drive(0, 0);
+            int new_right = sonic_left->ping_cm();
+
+            if(new_left == 0){
+                new_left = 9999;
+            }
+            if(new_right == 0){
+                new_right = 9999;
+            }
+            last_rotate.reset();
+            if(new_right >= new_left){
+                continue;
+            } else {
+                car->drive(0, 0.5);
+                my_timer.reset();
+                while (my_timer.get(millis()) < 500)
+                {
+                    sensor.read();
+                }
+                car->drive(0, 0);
+                continue;
+            }
+        }
     }
+    
+
+
 
 }
