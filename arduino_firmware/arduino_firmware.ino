@@ -1,9 +1,10 @@
 #include <SoftwareSerial.h>
 
 #include "chassis.h"
+#include "digital_counter.h"
 
 // debug flag
-#define DEBUG
+// #define DEBUG
 
 // motor ports
 #define M_PORT1 5
@@ -23,9 +24,14 @@
 #define ANALOG_SENSOR_5 A7
 #define ANALOG_SENSOR_N 6
 
+// wheel encoder
+#define LEFT_ENCODER 12
+#define RIGHT_ENCODER 11
+
 
 Car *car = NULL;
 SoftwareSerial *bluetooth = NULL;
+DigitalCounter* counters[2];
 
 // gyro 
 #include "GY521.h"
@@ -33,14 +39,18 @@ GY521 sensor(0x68);
 
 uint8_t analog_sensors[ANALOG_SENSOR_N];
 
+int led = 0;
+
 void setup()
 {
+    pinMode(LED_BUILTIN, OUTPUT);
+
     car = new Car(M_PORT1, M_PORT2, M_PORT3, M_PORT4);
     bluetooth = new SoftwareSerial(BLUETOOTH_RX, BLUETOOTH_TX); // RX, TX
-    bluetooth->begin(9600);
+    bluetooth->begin(115200);
 
     #ifdef DEBUG
-    Serial.begin(9600);
+    Serial.begin(115200);
     #endif
 
     // gyro setup
@@ -77,6 +87,10 @@ void setup()
     {
         pinMode(analog_sensors[i], INPUT);
     }
+
+    // wheel encoders
+    counters[0] = new DigitalCounter(LEFT_ENCODER);
+    counters[1] = new DigitalCounter(RIGHT_ENCODER);
     
 }
 
@@ -85,6 +99,9 @@ unsigned long last_time = millis();
 double drift = 0;
 void loop()
 {
+    digitalWrite(LED_BUILTIN, led);
+    led = !led;
+
     // drift for gyro
     unsigned long new_time = millis();
     unsigned long delta = new_time - last_time;
@@ -106,17 +123,33 @@ void loop()
 
 
     // Analog sensors
-    for (int i = 0; i < ANALOG_SENSOR_N; i++)
-    {
-        int val = analogRead(analog_sensors[i]);
-        float percent = (float)val / 1023.0;
-        bluetooth->print("ANA ");
-        bluetooth->print(String(i));
-        bluetooth->print(" ");
-        bluetooth->print(String(percent, 2));
+    // for (int i = 0; i < ANALOG_SENSOR_N; i++)
+    // {
+    //     int val = analogRead(analog_sensors[i]);
+    //     float percent = (float)val / 1023.0;
+    //     bluetooth->print("ANA ");
+    //     bluetooth->print(String(i));
+    //     bluetooth->print(" ");
+    //     bluetooth->print(String(percent, 2));
+    //     bluetooth->print("\n");
+    // }
+
+
+    // Digital counters
+    counters[0]->update();
+    counters[1]->update();
+    if(counters[0]->is_changed()){
+        bluetooth->print("CNT 0 ");
+        bluetooth->print(String(counters[0]->get_count()));
         bluetooth->print("\n");
+        counters[0]->clear_changed();
     }
-    
+    if(counters[1]->is_changed()){
+        bluetooth->print("CNT 1 ");
+        bluetooth->print(String(counters[1]->get_count()));
+        bluetooth->print("\n");
+        counters[1]->clear_changed();
+    }
 
 
 
@@ -135,55 +168,15 @@ void loop()
         Serial.print(line.length());
         #endif
 
-        String args[16];
-        int arg_len = 0;
-        int cursor = 0;
-        int line_len = line.length();
-        while (1)
-        {
-            int idx = line.indexOf(' ', cursor);
-            if (idx < 0)
-            {
-                // no more spaces, copy rest of the string
-                args[arg_len] = line.substring(cursor);
-                arg_len += 1;
-                break;
-            }
-            String arg = line.substring(cursor, idx);
-            args[arg_len] = arg;
-            arg_len += 1;
-            cursor = idx + 1;
-            if (cursor >= line_len)
-            {
-                break;
-            }
-        }
+        String args[2];
+        int idx = line.indexOf(' ');
+        if(idx >= 0 && idx < line.length()){
+            String forward = line.substring(0, idx);
+            String turn = line.substring(idx+1);
 
-        #ifdef DEBUG
-        Serial.print("num of args: ");
-        Serial.println(arg_len);
-        #endif
-
-        // get command
-        String command = args[0];
-
-        #ifdef DEBUG
-        Serial.print("command is: ");
-        Serial.println(command);
-        #endif
-
-        if (command.equals("DRV"))
-        {
-            // need at lease 2 args
-            if (arg_len >= 3)
-            {
-                float forward = args[1].toFloat();
-                float turn = args[2].toFloat();
-                car->drive(forward, turn);
-            }
-        }
-        else
-        {
+            float forward_f = forward.toFloat();
+            float turn_f = turn.toFloat();
+            car->drive(forward_f, turn_f);
         }
     }
 }

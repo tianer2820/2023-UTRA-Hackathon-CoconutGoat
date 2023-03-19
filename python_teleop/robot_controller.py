@@ -32,6 +32,11 @@ def data_recv_thread(controller: 'RobotController'):
                 pin = int(args[1])
                 val = float(args[2])
                 controller.analog_sensors[pin] = val
+        elif command == 'CNT':
+            if len(args) >= 3:
+                idx = int(args[1])
+                val = int(args[2])
+                controller.counters[idx] = val
         else:
             pass
 
@@ -43,6 +48,7 @@ class RobotController:
         self.bluetooth_socket = None
         self.gyr_angle = 0
         self.analog_sensors = [0 for i in range(6)]
+        self.counters = [0, 0]
 
         self.recv_thread = threading.Thread(target=data_recv_thread, args=(self,))
         self.recv_thread.start()
@@ -97,7 +103,7 @@ class RobotController:
             self.bluetooth_socket = None
     
     def drive(self, forward: float, turn: float):
-        line = "DRV {} {}\n".format(forward, turn)
+        line = "{:.3f} {:.3f}\n".format(forward, turn)
         self.bluetooth_socket.send(line.encode('utf-8'))
 
 
