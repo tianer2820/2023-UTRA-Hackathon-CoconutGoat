@@ -9,6 +9,6 @@ robot.connect()
 
 
 while True:
-    time.sleep(0.2)
-    print(robot.analog_sensors)
+    time.sleep(1)
+    robot.drive(0.3, 0)
 

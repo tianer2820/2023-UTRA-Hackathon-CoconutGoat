@@ -39,7 +39,9 @@ void setup()
 void loop() // run over and over
 {
     if (mySerial.available()){
-        Serial.write(mySerial.read());
+        char c = mySerial.read();
+        Serial.write(c);
+        mySerial.write(c);
     }
 
     if (Serial.available())

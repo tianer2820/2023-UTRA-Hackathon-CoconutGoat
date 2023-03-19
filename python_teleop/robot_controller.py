@@ -16,7 +16,9 @@ def data_recv_thread(controller: 'RobotController'):
                 buff += c.decode('utf-8')
             else:
                 break
-
+        
+        print(buff)
+        continue;
         buff = buff.strip()
         args = buff.split(' ')
 
