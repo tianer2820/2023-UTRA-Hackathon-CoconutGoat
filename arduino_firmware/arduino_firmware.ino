@@ -28,6 +28,10 @@
 #define LEFT_ENCODER 12
 #define RIGHT_ENCODER 11
 
+// front color
+#define FRONT_COLOR 4
+#define LEFT_COLOR 7
+
 
 Car *car = NULL;
 SoftwareSerial *bluetooth = NULL;
@@ -41,13 +45,20 @@ uint8_t analog_sensors[ANALOG_SENSOR_N];
 
 int led = 0;
 
+enum State{
+    FRONT,
+    LEFT,
+    RIGHT,
+};
+int current_state = FRONT;
+
+
 void setup()
 {
+    current_state = FRONT;
     pinMode(LED_BUILTIN, OUTPUT);
 
     car = new Car(M_PORT1, M_PORT2, M_PORT3, M_PORT4);
-    bluetooth = new SoftwareSerial(BLUETOOTH_RX, BLUETOOTH_TX); // RX, TX
-    bluetooth->begin(115200);
 
     #ifdef DEBUG
     Serial.begin(115200);
@@ -97,6 +108,7 @@ void setup()
 
 unsigned long last_time = millis();
 double drift = 0;
+float angle = 0;
 void loop()
 {
     digitalWrite(LED_BUILTIN, led);
@@ -110,12 +122,8 @@ void loop()
 
     // gyro
     sensor.read();
-    // float pitch = sensor.getPitch();
-    // float roll = sensor.getRoll();
     float yaw = sensor.getYaw() - drift;
-    bluetooth->print("GYR ");
-    bluetooth->print(String(yaw, 2));
-    bluetooth->print("\n");
+
 
     #ifdef DEBUG
     Serial.println(yaw);
@@ -127,56 +135,41 @@ void loop()
     // {
     //     int val = analogRead(analog_sensors[i]);
     //     float percent = (float)val / 1023.0;
-    //     bluetooth->print("ANA ");
-    //     bluetooth->print(String(i));
-    //     bluetooth->print(" ");
-    //     bluetooth->print(String(percent, 2));
-    //     bluetooth->print("\n");
     // }
 
 
     // Digital counters
     counters[0]->update();
     counters[1]->update();
-    if(counters[0]->is_changed()){
-        bluetooth->print("CNT 0 ");
-        bluetooth->print(String(counters[0]->get_count()));
-        bluetooth->print("\n");
-        counters[0]->clear_changed();
-    }
-    if(counters[1]->is_changed()){
-        bluetooth->print("CNT 1 ");
-        bluetooth->print(String(counters[1]->get_count()));
-        bluetooth->print("\n");
-        counters[1]->clear_changed();
+
+
+
+    // black line
+    if(digitalRead(LEFT_COLOR) && current_state == FRONT){
+        current_state = LEFT;
+        drift = (yaw - 180);
     }
 
+    if (current_state == FRONT){
+        if(digitalRead(FRONT_COLOR)){
+            car->drive(-0.2, 0.3);
+        } else {
+            car->drive(-0.2, -0.3);
+        }
+    } else if (current_state == LEFT){
+        float delta_angle = yaw - angle;
+        if(delta_angle >= 270){
+            current_state = FRONT;
+        } else {
+            car->drive(0, 0.3);
+        }
 
 
-    // read command
-    String line;
-    if (bluetooth->available() > 0)
-    {
-        // PARSE COMMAND
-
-        line = bluetooth->readStringUntil('\n');
-
-        #ifdef DEBUG
-        Serial.println("Line received:");
-        Serial.println(line);
-        Serial.print("length = ");
-        Serial.print(line.length());
-        #endif
-
-        String args[2];
-        int idx = line.indexOf(' ');
-        if(idx >= 0 && idx < line.length()){
-            String forward = line.substring(0, idx);
-            String turn = line.substring(idx+1);
-
-            float forward_f = forward.toFloat();
-            float turn_f = turn.toFloat();
-            car->drive(forward_f, turn_f);
+    } else if (current_state == RIGHT){
+        if(digitalRead(FRONT_COLOR)){
+            car->drive(-0.2, 0.3);
+        } else {
+            car->drive(-0.2, -0.3);
         }
     }
 }
