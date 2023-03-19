@@ -10,5 +10,5 @@ robot.connect()
 
 while True:
     time.sleep(0.2)
-    print(robot.gyr_angle)
+    print(robot.analog_sensors)
 

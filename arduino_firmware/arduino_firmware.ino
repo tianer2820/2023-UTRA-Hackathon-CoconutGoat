@@ -15,6 +15,15 @@
 #define BLUETOOTH_RX 2
 #define BLUETOOTH_TX 3
 
+#define ANALOG_SENSOR_0 A0
+#define ANALOG_SENSOR_1 A1
+#define ANALOG_SENSOR_2 A2
+#define ANALOG_SENSOR_3 A3
+#define ANALOG_SENSOR_4 A6
+#define ANALOG_SENSOR_5 A7
+#define ANALOG_SENSOR_N 6
+
+
 Car *car = NULL;
 SoftwareSerial *bluetooth = NULL;
 
@@ -22,6 +31,7 @@ SoftwareSerial *bluetooth = NULL;
 #include "GY521.h"
 GY521 sensor(0x68);
 
+uint8_t analog_sensors[ANALOG_SENSOR_N];
 
 void setup()
 {
@@ -55,6 +65,19 @@ void setup()
     sensor.gye = -2.2706871;
     sensor.aze = -0.0302290;
 
+
+    // analog sensors
+    analog_sensors[0] = ANALOG_SENSOR_0;
+    analog_sensors[1] = ANALOG_SENSOR_1;
+    analog_sensors[2] = ANALOG_SENSOR_2;
+    analog_sensors[3] = ANALOG_SENSOR_3;
+    analog_sensors[4] = ANALOG_SENSOR_4;
+    analog_sensors[5] = ANALOG_SENSOR_5;
+    for (int i = 0; i < ANALOG_SENSOR_N; i++)
+    {
+        pinMode(analog_sensors[i], INPUT);
+    }
+    
 }
 
 
@@ -80,6 +103,20 @@ void loop()
     #ifdef DEBUG
     Serial.println(yaw);
     #endif
+
+
+    // Analog sensors
+    for (int i = 0; i < ANALOG_SENSOR_N; i++)
+    {
+        int val = analogRead(analog_sensors[i]);
+        float percent = (float)val / 1023.0;
+        bluetooth->print("ANA ");
+        bluetooth->print(String(i));
+        bluetooth->print(" ");
+        bluetooth->print(String(percent, 2));
+        bluetooth->print("\n");
+    }
+    
 
 
 

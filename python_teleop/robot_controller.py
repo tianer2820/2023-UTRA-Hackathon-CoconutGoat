@@ -27,6 +27,11 @@ def data_recv_thread(controller: 'RobotController'):
         if command == 'GYR':
             if len(args) >= 2:
                 controller.gyr_angle = float(args[1])
+        elif command == 'ANA':
+            if len(args) >= 3:
+                pin = int(args[1])
+                val = float(args[2])
+                controller.analog_sensors[pin] = val
         else:
             pass
 
@@ -37,6 +42,7 @@ class RobotController:
         self.running = True
         self.bluetooth_socket = None
         self.gyr_angle = 0
+        self.analog_sensors = [0 for i in range(6)]
 
         self.recv_thread = threading.Thread(target=data_recv_thread, args=(self,))
         self.recv_thread.start()
