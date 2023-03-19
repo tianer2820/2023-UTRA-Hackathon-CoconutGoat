@@ -6,6 +6,8 @@ import socket
 import threading
 from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget
 from PyQt6 import uic, QtGui, QtCore
+forward = 0
+right = 0
 
 class KeyboardInterface(QWidget):
     def __init__(self, sock):
@@ -14,16 +16,31 @@ class KeyboardInterface(QWidget):
         self.show()
 
     def keyPressEvent(self, event) -> None:
+        if event.isAutoRepeat():
+            return
+        global forward, right
         if event.key() == QtCore.Qt.Key.Key_W:
-            send_forward(self.sock, 1, 0)
-        elif event.key() == QtCore.Qt.Key.Key_S:
-            send_forward(self.sock, -1, 0)
-        elif event.key() == QtCore.Qt.Key.Key_A:
-            send_forward(self.sock, 0, -1)
-        elif event.key() == QtCore.Qt.Key.Key_D:
-            send_forward(self.sock, 0, 1)
+            forward = forward + 1
+        if event.key() == QtCore.Qt.Key.Key_S:
+            forward = forward - 1
+        if event.key() == QtCore.Qt.Key.Key_A:
+            right = right - 1
+        if event.key() == QtCore.Qt.Key.Key_D:
+            right = right + 1
+        print("Key press: forward: {}, right: {}".format(forward, right))
+        send_forward(sock, forward, right)
     def keyReleaseEvent(self, event):
-        send_forward(self.sock, 0, 0)
+        global forward, right
+        if event.key() == QtCore.Qt.Key.Key_W:
+            forward = forward - 1
+        if event.key() == QtCore.Qt.Key.Key_S:
+            forward = forward + 1
+        if event.key() == QtCore.Qt.Key.Key_A:
+            right = right + 1
+        if event.key() == QtCore.Qt.Key.Key_D:
+            right = right - 1
+        print("Key release: forward: {}, right: {}".format(forward, right))
+        send_forward(sock, forward, right)
 
 class MainWindow(QMainWindow):
     def __init__(self, sock):
