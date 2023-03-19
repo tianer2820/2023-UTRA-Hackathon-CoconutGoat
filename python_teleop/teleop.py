@@ -9,6 +9,7 @@ from PyQt6 import uic, QtGui, QtCore
 from robot_controller import RobotController, data_recv_thread
 forward = 0
 right = 0
+robotcontroller = RobotController()
 
 class KeyboardInterface(QWidget):
     def __init__(self, sock):
@@ -17,6 +18,7 @@ class KeyboardInterface(QWidget):
         self.show()
 
     def keyPressEvent(self, event) -> None:
+        global robotcontroller
         if event.isAutoRepeat():
             return
         global forward, right
@@ -32,6 +34,7 @@ class KeyboardInterface(QWidget):
         robotcontroller.drive(forward, right)
     def keyReleaseEvent(self, event):
         global forward, right
+        global robotcontroller
         if event.key() == QtCore.Qt.Key.Key_W:
             forward = forward - 1
         if event.key() == QtCore.Qt.Key.Key_S:
@@ -61,23 +64,27 @@ class MainWindow(QMainWindow):
         self.show()
 
     def forward_exe(self):
+        global robotcontroller
         robotcontroller.drive(1, 0)
 
     def backward_exe(self):
+        global robotcontroller
         robotcontroller.drive(-1, 0)
 
     def left_exe(self):
+        global robotcontroller
         robotcontroller.drive(0, -1)
 
     def right_exe(self):
+        global robotcontroller
         robotcontroller.drive(0, 1)
 
     def stop_exe(self):
+        global robotcontroller
         robotcontroller.drive(0, 0)
 
 if __name__ == '__main__':
     global robotcontroller
-    robotcontroller = RobotController()
     robotcontroller.connect()
     window_app = QApplication(sys.argv)
     window_app.exec()
