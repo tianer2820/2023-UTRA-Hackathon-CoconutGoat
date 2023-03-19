@@ -145,31 +145,12 @@ void loop()
 
 
     // black line
-    if(digitalRead(LEFT_COLOR) && current_state == FRONT){
-        current_state = LEFT;
-        drift = (yaw - 180);
+    if(digitalRead(LEFT_COLOR)){
+        car->drive(0, 0.3);
+    } else if (digitalRead(FRONT_COLOR)){
+        car->drive(0, -0.3);
+    } else {
+        car->drive(-0.3, 0);
     }
 
-    if (current_state == FRONT){
-        if(digitalRead(FRONT_COLOR)){
-            car->drive(-0.2, 0.3);
-        } else {
-            car->drive(-0.2, -0.3);
-        }
-    } else if (current_state == LEFT){
-        float delta_angle = yaw - angle;
-        if(delta_angle >= 270){
-            current_state = FRONT;
-        } else {
-            car->drive(0, 0.3);
-        }
-
-
-    } else if (current_state == RIGHT){
-        if(digitalRead(FRONT_COLOR)){
-            car->drive(-0.2, 0.3);
-        } else {
-            car->drive(-0.2, -0.3);
-        }
-    }
 }
