@@ -1,9 +1,49 @@
 import bluetooth
 import socket
+import threading
+import time
+
+def data_recv_thread(controller: 'RobotController'):
+    while controller.running:
+        if(controller.bluetooth_socket is None):
+            time.sleep(0.05)
+            continue
+        
+        buff = ''
+        while True:
+            c = controller.bluetooth_socket.recv(1)
+            if c != b'\n':
+                buff += c.decode('utf-8')
+            else:
+                break
+
+        buff = buff.strip()
+        args = buff.split(' ')
+
+        if len(args) == 0:
+            continue
+
+        command = args[0]
+        if command == 'GYR':
+            if len(args) >= 2:
+                controller.gyr_angle = float(args[1])
+        else:
+            pass
+
+
 
 class RobotController:
     def __init__(self) -> None:
+        self.running = True
         self.bluetooth_socket = None
+        self.gyr_angle = 0
+
+        self.recv_thread = threading.Thread(target=data_recv_thread, args=(self,))
+        self.recv_thread.start()
+
+    def __del__(self):
+        self.running = False
+        self.recv_thread.join()
 
     def connect(self):
         print("searching devices...")
