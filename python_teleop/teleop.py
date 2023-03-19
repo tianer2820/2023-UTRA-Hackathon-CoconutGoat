@@ -6,6 +6,7 @@ import socket
 import threading
 from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget
 from PyQt6 import uic, QtGui, QtCore
+from robot_controller import RobotController, data_recv_thread
 forward = 0
 right = 0
 
@@ -28,7 +29,7 @@ class KeyboardInterface(QWidget):
         if event.key() == QtCore.Qt.Key.Key_D:
             right = right + 1
         print("Key press: forward: {}, right: {}".format(forward, right))
-        send_forward(sock, forward, right)
+        robotcontroller.drive(forward, right)
     def keyReleaseEvent(self, event):
         global forward, right
         if event.key() == QtCore.Qt.Key.Key_W:
@@ -40,7 +41,7 @@ class KeyboardInterface(QWidget):
         if event.key() == QtCore.Qt.Key.Key_D:
             right = right - 1
         print("Key release: forward: {}, right: {}".format(forward, right))
-        send_forward(sock, forward, right)
+        robotcontroller.drive(forward, right)
 
 class MainWindow(QMainWindow):
     def __init__(self, sock):
@@ -60,81 +61,23 @@ class MainWindow(QMainWindow):
         self.show()
 
     def forward_exe(self):
-        send_forward(self.sock, 1, 0)
+        robotcontroller.drive(1, 0)
 
     def backward_exe(self):
-        send_forward(self.sock, -1, 0)
+        robotcontroller.drive(-1, 0)
 
     def left_exe(self):
-        send_forward(self.sock, 0, -1)
+        robotcontroller.drive(0, -1)
 
     def right_exe(self):
-        send_forward(self.sock, 0, 1)
+        robotcontroller.drive(0, 1)
 
     def stop_exe(self):
-        send_forward(self.sock, 0, 0)
-
-
-def connect_bluetooth() -> socket.socket:
-    print("searching devices...")
-    devices = None
-    while True:
-        devices = bluetooth.discover_devices(lookup_names=True, duration=4)
-        if len(devices) > 0:
-            print("devices found:")
-            for dev in devices:
-                addr = dev[0]
-                name = dev[1]
-                print("Name: {}, addr: {}".format(name, addr))
-            break
-        else:
-            print("no device found, retry...")
-            continue
-
-    # auto find target device
-    target_addr = None
-    target_name = None
-    for device in devices:
-        addr = device[0]
-        name = device[1]
-        if name == 'HC-06':
-            # found
-            target_addr = addr
-            target_name = name
-            break
-
-    if target_addr is None:
-        print("HC-06 not found")
-        return
-    else:
-        print("HC-06 is found, auto connect...")
-
-    print("Connecting to \"{}\" on {}".format(target_name, target_addr))
-    sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-    target_channel = 1
-    sock.connect((target_addr, target_channel))
-
-    print("Bluetooth platform Connected")
-    return sock
-
-
-def recv_thread(sock: socket.socket):
-    while True:
-        c = sock.recv(1)
-        print(c)
-
-
-def send_forward(sock, forward_v, turn_v):
-    line = "DRV " + str(forward_v) + " " + str(turn_v) + "\n"
-    sock.send(line.encode('utf-8'))
-
+        robotcontroller.drive(0, 0)
 
 if __name__ == '__main__':
-    sock = connect_bluetooth()
-    print(sock)
-    thread = threading.Thread(target=recv_thread, args=(sock,))
-    thread.start()
+    global robotcontroller
+    robotcontroller = RobotController()
+    robotcontroller.connect()
     window_app = QApplication(sys.argv)
-    mainwindowui = MainWindow(sock)
-    keyboardui = KeyboardInterface(sock)
     window_app.exec()
